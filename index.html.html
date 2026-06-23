@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Your Study - CBT Exam</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 0; padding: 20px; 
+            background-color: #f0f2f5; 
+            -webkit-user-select: none; user-select: none;
+        }
+        .container { background: white; padding: 30px; border-radius: 12px; max-width: 600px; margin: 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .channel-header { text-align: center; color: #ff4757; font-size: 32px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        .form-group { margin-bottom: 25px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type="text"], input[type="email"], select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; background-color: white; }
+        .btn { background-color: #ff4757; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; }
+        .btn:hover { background-color: #e84118; }
+        #examSection { display: none; }
+        .question-box { margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #ff4757; font-size: 18px; font-weight: 500; }
+        .options-list { list-style: none; padding: 0; }
+        .options-list li { margin-bottom: 12px; padding: 12px; background: #fff; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; display: flex; align-items: center; }
+        .options-list li:hover { background: #f1f2f6; }
+        .options-list input { margin-right: 10px; transform: scale(1.2); cursor: pointer; }
+        .options-list label { margin: 0; cursor: pointer; width: 100%; }
+        .nav-buttons { display: flex; justify-content: space-between; margin-top: 20px; }
+        .btn-nav { width: 45%; background-color: #2f3542; }
+        .btn-nav:disabled { background-color: #ced6e0; cursor: not-allowed; }
+        #loading { display: none; text-align: center; font-weight: bold; color: #ff4757; margin-top: 10px; font-size: 16px; }
+        #successMessage { display: none; background-color: #d4edda; color: #155724; padding: 25px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 18px; line-height: 1.5; border: 1px solid #c3e6cb; }
+        #submitExamBtn { display: none; margin-top: 20px; background-color: #2ed573; }
+        .summary-box { background: #fff; border: 1px solid #c3e6cb; padding: 15px; border-radius: 6px; text-align: left; margin: 15px 0; display: inline-block; }
+        @media print { body { display: none !important; } }
+    </style>
+</head>
+<body oncontextmenu="return false;" oncopy="return false;" oncut="return false;" onpaste="return false;" ondragstart="return false;" ondrop="return false;">
+
+<div class="container">
+    <div class="channel-header">Search Your Study</div>
+
+    <div id="registrationSection">
+        <form id="regForm">
+            <div class="form-group">
+                <label>स्टूडेंट का नाम (Student Name):</label>
+                <input type="text" id="studentName" required placeholder="अपना पूरा नाम लिखें">
+            </div>
+            <div class="form-group">
+                <label>ईमेल आईडी (Email ID):</label>
+                <input type="email" id="studentEmail" required placeholder="example@gmail.com">
+            </div>
+            <div class="form-group">
+                <label>कक्षा चुनिए (Select Class):</label>
+                <select id="studentClass" required>
+                    <option value="" disabled selected>अपनी कक्षा चुनें</option>
+                    <option value="class_9">9th Class</option>
+                    <option value="class_10">10th Class</option>
+                    <option value="class_11">11th Class</option>
+                    <option value="class_12">12th Class</option>
+                    <option value="class_other">Other Class (अन्य कक्षा)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">एग्जाम शुरू करें</button>
+        </form>
+    </div>
+
+    <div id="loading">प्रश्नों को लोड किया जा रहा है... कृपया रुकें।</div>
+
+    <div id="examSection">
+        <h3 id="questionNum">प्रश्न 1</h3>
+        <div class="question-box" id="questionText">लोड हो रहा है...</div>
+        
+        <ul class="options-list">
+            <li onclick="document.getElementById('optA').click()"><input type="radio" name="quizOpt" id="optA" value="A"> <label for="optA" id="lblA">Option A</label></li>
+            <li onclick="document.getElementById('optB').click()"><input type="radio" name="quizOpt" id="optB" value="B"> <label for="optB" id="lblB">Option B</label></li>
+            <li onclick="document.getElementById('optC').click()"><input type="radio" name="quizOpt" id="optC" value="C"> <label for="optC" id="lblC">Option C</label></li>
+            <li onclick="document.getElementById('optD').click()"><input type="radio" name="quizOpt" id="optD" value="D"> <label for="optD" id="lblD">Option D</label></li>
+        </ul>
+
+        <div class="nav-buttons">
+            <button class="btn btn-nav" id="prevBtn" onclick="prevQuestion()">पिछला (Prev)</button>
+            <button class="btn btn-nav" id="nextBtn" onclick="nextQuestion()">अगला (Next)</button>
+        </div>
+        
+        <button class="btn" id="submitExamBtn" onclick="submitExam(event)">परीक्षा समाप्त (Submit Test)</button>
+    </div>
+
+    <div id="successMessage"></div>
+</div>
+
+<script>
+    document.onkeydown = function(e) {
+        if (e.keyCode == 123) { return false; }
+        if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { return false; }
+        if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { return false; }
+    };
+
+    const firebaseConfig = {
+        databaseURL: "https://sys-exam-f16dd-default-rtdb.firebaseio.com/"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    var questionsList = []; 
+    var currentQuestionIdx = 0;
+    var studentAnswers = {}; 
+    var chosenClass = "";
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    document.getElementById('regForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        var emailInput = document.getElementById('studentEmail').value.trim().toLowerCase();
+        chosenClass = document.getElementById('studentClass').value;
+        
+        document.getElementById('registrationSection').style.display = 'none';
+        document.getElementById('loading').innerText = "सुरक्षा जांच की जा रही है...";
+        document.getElementById('loading').style.display = 'block';
+
+        database.ref('submissions/' + chosenClass).once('value').then(function(subSnapshot) {
+            var allSubmissions = subSnapshot.val();
+            var alreadyExists = false;
+            
+            if (allSubmissions) {
+                for (var subKey in allSubmissions) {
+                    if (allSubmissions[subKey].email && allSubmissions[subKey].email.trim().toLowerCase() === emailInput) {
+                        alreadyExists = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (alreadyExists) {
+                alert("🔒 सुरक्षा ब्लॉक: आप इस कक्षा की परीक्षा पहले ही दे चुके हैं!");
+                window.location.reload();
+                return;
+            }
+
+            document.getElementById('loading').innerText = "प्रश्नों को लोड किया जा रहा है... कृपया रुकें।";
+            return database.ref('quiz_data/' + chosenClass).once('value');
+        }).then(function(snapshot) {
+            if (!snapshot) return; 
+            
+            var data = snapshot.val();
+
+            if (!data) {
+                alert("इस कक्षा में कोई प्रश्न उपलब्ध नहीं है!");
+                window.location.reload();
+                return;
+            }
+
+            questionsList = [];
+
+            Object.keys(data).forEach(function(key){
+
+                var qObj = data[key];
+
+                if(!qObj || !qObj.question || !qObj.options){
+                    return;
+                }
+
+                var rawOptions = [
+                    { key:"A", text:qObj.options.A || "" },
+                    { key:"B", text:qObj.options.B || "" },
+                    { key:"C", text:qObj.options.C || "" },
+                    { key:"D", text:qObj.options.D || "" }
+                ];
+
+                var shuffledOpts = shuffleArray([...rawOptions]);
+
+                questionsList.push({
+                    id: qObj.qID || key,
+                    question: qObj.question,
+                    shuffledOptions: shuffledOpts,
+                    correct: qObj.correct_option
+                });
+
+            });
+
+            if(questionsList.length === 0) {
+                alert("इस कक्षा में कोई वैध प्रश्न नहीं मिला!");
+                window.location.reload();
+                return;
+            }
+
+            questionsList = shuffleArray(questionsList);
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('examSection').style.display = 'block';
+
+            questionsList.forEach(q => { studentAnswers[q.id] = ""; });
+            displayQuestion();
+        }).catch(function(error) {
+            alert("त्रुटि: " + error.message);
+            window.location.reload();
+        });
+    });
+
+    function displayQuestion() {
+        var currentQ = questionsList[currentQuestionIdx];
+        document.getElementById('questionNum').innerText = "प्रश्न " + (currentQuestionIdx + 1) + " (कुल " + questionsList.length + " में से)";
+        document.getElementById('questionText').innerText = currentQ.question;
+        
+        document.getElementById('lblA').innerText = currentQ.shuffledOptions[0].text;
+        document.getElementById('lblB').innerText = currentQ.shuffledOptions[1].text;
+        document.getElementById('lblC').innerText = currentQ.shuffledOptions[2].text;
+        document.getElementById('lblD').innerText = currentQ.shuffledOptions[3].text;
+
+        var radios = document.getElementsByName('quizOpt');
+        var savedOriginalKey = studentAnswers[currentQ.id]; 
+        
+        radios.forEach((radio, index) => {
+            var originalKeyOfThisPosition = currentQ.shuffledOptions[index].key;
+            radio.checked = (originalKeyOfThisPosition === savedOriginalKey);
+        });
+
+        document.getElementById('prevBtn').disabled = (currentQuestionIdx === 0);
+        document.getElementById('nextBtn').disabled = (currentQuestionIdx === questionsList.length - 1);
+        
+        if(currentQuestionIdx === questionsList.length - 1) {
+            document.getElementById('nextBtn').innerText = "अंतिम प्रश्न";
+            document.getElementById('submitExamBtn').style.display = "block";
+        } else {
+            document.getElementById('nextBtn').innerText = "अगला (Next)";
+            document.getElementById('submitExamBtn').style.display = "none";
+        }
+    }
+
+    document.addEventListener('change', function(e) {
+        if(e.target && e.target.name === 'quizOpt'){
+            var currentQ = questionsList[currentQuestionIdx];
+            var selectedIndex = 0;
+            if(e.target.id === "optA") selectedIndex = 0;
+            if(e.target.id === "optB") selectedIndex = 1;
+            if(e.target.id === "optC") selectedIndex = 2;
+            if(e.target.id === "optD") selectedIndex = 3;
+            
+            var originalKey = currentQ.shuffledOptions[selectedIndex].key;
+            studentAnswers[currentQ.id] = originalKey;
+        }
+    });
+
+    function nextQuestion() {
+        if (currentQuestionIdx < questionsList.length - 1) { currentQuestionIdx++; displayQuestion(); }
+    }
+
+    function prevQuestion() {
+        if (currentQuestionIdx > 0) { currentQuestionIdx--; displayQuestion(); }
+    }
+
+    function submitExam(e) {
+        if(e) e.preventDefault(); 
+        if(!confirm("क्या आप परीक्षा सबमिट करना चाहते हैं?")) return;
+
+        document.getElementById('examSection').style.display = 'none';
+        document.getElementById('loading').innerText = "आपका डेटा सुरक्षित सबमिट हो रहा है...";
+        document.getElementById('loading').style.display = 'block';
+
+        var name = document.getElementById('studentName').value;
+        var email = document.getElementById('studentEmail').value.trim().toLowerCase();
+        var displayClassStr = chosenClass === "class_other" ? "Other Class" : chosenClass.replace("class_", "") + "th Class";
+
+        var score = 0;
+        var attempted = 0;
+        
+        var formattedAnswers = {};
+        questionsList.forEach(q => {
+            var ansValue = studentAnswers[q.id] || "";
+            formattedAnswers[q.id] = ansValue;
+            if(ansValue !== "") {
+                attempted++;
+                if(ansValue === q.correct) { score++; }
+            }
+        });
+
+        var unattempted = questionsList.length - attempted;
+
+        var newSubmissionRef = database.ref('submissions/' + chosenClass).push();
+        newSubmissionRef.set({
+            timestamp: new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}),
+            name: name,
+            email: email,
+            studentClass: displayClassStr,
+            classFolder: chosenClass,       
+            attempted: attempted,
+            score: score,
+            totalQuestions: questionsList.length,
+            answers: formattedAnswers,
+            finalScoreText: "Pending" 
+        }, function(error) {
+            document.getElementById('loading').style.display = 'none';
+            var successBox = document.getElementById('successMessage');
+            if (error) {
+                alert("सबमिशन फेल! एरर: " + error.message);
+                document.getElementById('examSection').style.display = 'block';
+            } else {
+                var htmlSummary = "<h3>🎉 आपका Test सफलतापूर्वक सबमिट हो गया है!</h3>";
+                htmlSummary += "<div class='summary-box'>";
+                htmlSummary += "📋 <b>कुल प्रश्न:</b> " + questionsList.length + "<br>";
+                htmlSummary += "📝 <b>हल किए गए प्रश्न:</b> " + attempted + "<br>";
+                htmlSummary += "❌ <b>बिना हल किए प्रश्न:</b> " + unattempted + "<br>";
+                htmlSummary += "</div><br><br>";
+                htmlSummary += "<button class='btn' style='max-width:150px;' onclick='window.location.reload();'>OK</button>";
+                
+                successBox.innerHTML = htmlSummary;
+                successBox.style.display = 'block';
+            }
+        });
+    }
+    document.addEventListener('visibilitychange',function(){
+ if(document.hidden){
+   alert('Warning: Tab change detected!');
+ }
+});
+</script>
+</body>
+</html>
